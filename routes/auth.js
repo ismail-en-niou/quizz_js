@@ -119,13 +119,7 @@ router.get('/scores/:userId', verifyToken, async (req, res) => {
 });
 
 // Get all users with scores route
-router.post('/users-with-scores', verifyToken, async (req, res) => {
-  const { token } = req.body;
-
-  if (!token) {
-    return res.status(400).json({ error: 'Token is required' });
-  }
-
+router.get('/users-with-scores', async (req, res) => {
   try {
     const db = getDatabase();
     const usersRef = ref(db, 'users');
