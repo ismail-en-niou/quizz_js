@@ -75,10 +75,9 @@ const verifyToken = (req, res, next) => {
 // Score route
 router.post('/score', verifyToken, async (req, res) => {
   const { userId, score } = req.body;
-  const token = req.headers['authorization']?.split(' ')[1]; // Extract token from Authorization header
 
-  if (!userId || score === undefined || !token) {
-    return res.status(400).json({ error: 'User ID, score, and token are required' });
+  if (!userId || score === undefined) {
+    return res.status(400).json({ error: 'User ID and score are required' });
   }
 
   try {
@@ -89,8 +88,7 @@ router.post('/score', verifyToken, async (req, res) => {
     const newScoreRef = push(userScoreRef);
     await set(newScoreRef, {
       score: score,
-      timestamp: new Date().toISOString(),
-      token: token
+      timestamp: new Date().toISOString()
     });
 
     res.status(200).json({ message: 'Score added successfully' });
