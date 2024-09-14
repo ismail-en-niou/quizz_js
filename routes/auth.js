@@ -3,6 +3,10 @@ const router = express.Router();
 const cors = require('cors');
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = require('firebase/auth');
 const { getDatabase, ref, set, get, push } = require('firebase/database');
+const jwt = require('jsonwebtoken');
+
+// Add this line to set up the secret key for JWT
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Enable CORS for all routes
 router.use(cors());
@@ -44,18 +48,36 @@ router.post('/login', async (req, res) => {
     const auth = getAuth();
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    res.status(200).json({ message: 'User logged in successfully', userId: user.uid });
+    
+    // Generate JWT token
+    const token = jwt.sign({ userId: user.uid }, JWT_SECRET, { expiresIn: '1h' });
+    
+    res.status(200).json({ message: 'User logged in successfully', userId: user.uid, token });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.header('Authorization');
+  if (!token) return res.status(401).json({ error: 'Access denied' });
+
+  try {
+    const verified = jwt.verify(token, JWT_SECRET);
+    req.user = verified;
+    next();
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid token' });
+  }
+};
+
 // Score route
-router.post('/score', async (req, res) => {
-  const { userId, score } = req.body;
+router.post('/score', verifyToken, async (req, res) => {
+  const { userId, score, token } = req.body;
   
-  if (!userId || score === undefined) {
-    return res.status(400).json({ error: 'User ID and score are required' });
+  if (!userId || score === undefined || !token) {
+    return res.status(400).json({ error: 'User ID, score, and token are required' });
   }
 
   try {
@@ -66,7 +88,8 @@ router.post('/score', async (req, res) => {
     const newScoreRef = push(userScoreRef);
     await set(newScoreRef, {
       score: score,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      token: token
     });
 
     res.status(200).json({ message: 'Score added successfully' });
@@ -76,7 +99,7 @@ router.post('/score', async (req, res) => {
 });
 
 // Get user scores route
-router.get('/scores/:userId', async (req, res) => {
+router.get('/scores/:userId', verifyToken, async (req, res) => {
   const userId = req.params.userId;
 
   try {
@@ -95,7 +118,7 @@ router.get('/scores/:userId', async (req, res) => {
 });
 
 // Get all users with scores route
-router.get('/users-with-scores', async (req, res) => {
+router.get('/users-with-scores', verifyToken, async (req, res) => {
   try {
     const db = getDatabase();
     const usersRef = ref(db, 'users');
