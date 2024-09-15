@@ -73,7 +73,7 @@ const verifyToken = (req, res, next) => {
 };
 
 // Score route
-router.post('/score', verifyToken, async (req, res) => {
+router.post('/score', async (req, res) => {
   const { userId, score, totalQuestions, quizDuration, difficulty, suspectedCheatingAttempts, cheatingDetected } = req.body;
 
   if (!userId || score === undefined || totalQuestions === undefined || quizDuration === undefined || difficulty === undefined || suspectedCheatingAttempts === undefined || cheatingDetected === undefined) {
