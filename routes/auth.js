@@ -74,10 +74,10 @@ const verifyToken = (req, res, next) => {
 
 // Score route
 router.post('/score', verifyToken, async (req, res) => {
-  const { userId, score } = req.body;
+  const { userId, score, totalQuestions, quizDuration, difficulty, suspectedCheatingAttempts, cheatingDetected } = req.body;
 
-  if (!userId || score === undefined) {
-    return res.status(400).json({ error: 'User ID and score are required' });
+  if (!userId || score === undefined || totalQuestions === undefined || quizDuration === undefined || difficulty === undefined || suspectedCheatingAttempts === undefined || cheatingDetected === undefined) {
+    return res.status(400).json({ error: 'All fields are required' });
   }
 
   try {
@@ -87,7 +87,12 @@ router.post('/score', verifyToken, async (req, res) => {
     // Push a new score to the user's scores array
     const newScoreRef = push(userScoreRef);
     await set(newScoreRef, {
-      score: score,
+      score,
+      totalQuestions,
+      quizDuration,
+      difficulty,
+      suspectedCheatingAttempts,
+      cheatingDetected,
       timestamp: new Date().toISOString()
     });
 
@@ -107,7 +112,12 @@ router.get('/scores/:userId', verifyToken, async (req, res) => {
     const snapshot = await get(userScoreRef);
 
     if (snapshot.exists()) {
-      res.status(200).json(snapshot.val());
+      const scores = snapshot.val();
+      const formattedScores = Object.entries(scores).map(([key, score]) => ({
+        id: key,
+        ...score
+      }));
+      res.status(200).json(formattedScores);
     } else {
       res.status(404).json({ message: 'No scores found for this user' });
     }
@@ -126,11 +136,21 @@ router.get('/users-with-scores', async (req, res) => {
     if (snapshot.exists()) {
       const users = snapshot.val();
       const usersWithScores = Object.entries(users).map(([userId, userData]) => {
+        const scores = userData.scores ? Object.entries(userData.scores).map(([key, score]) => ({
+          id: key,
+          score: score.score,
+          totalQuestions: score.totalQuestions,
+          quizDuration: score.quizDuration,
+          difficulty: score.difficulty,
+          suspectedCheatingAttempts: score.suspectedCheatingAttempts,
+          cheatingDetected: score.cheatingDetected,
+          timestamp: score.timestamp
+        })) : [];
         return {
           userId,
           name: userData.name,
           email: userData.email,
-          scores: userData.scores ? Object.values(userData.scores) : []
+          scores
         };
       });
 
